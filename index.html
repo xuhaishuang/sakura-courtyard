@@ -38,6 +38,19 @@ body{overflow:hidden;background:#0a0806;font-family:'PingFang SC','Microsoft YaH
 .btn-close{width:32px;height:32px;border-radius:50%;background:#FFF;border:1px solid #F0E0D0;font-size:17px;cursor:pointer;color:#8B7355}
 .diary-right{width:240px;padding:18px 14px;overflow-y:auto;background:rgba(255,255,255,.3)}
 .diary-right h3{color:#6B4226;font-size:1em;margin-bottom:6px}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:12px;font-size:11px;text-align:center}
+.calendar .day-hdr{color:#B8A898;padding:2px 0}
+.calendar .day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:50%;cursor:default;position:relative}
+.calendar .day.has{font-weight:bold;cursor:pointer}
+.calendar .day.has::after{content:'';position:absolute;bottom:1px;width:5px;height:5px;border-radius:50%}
+.calendar .day.a1{color:#D4687C}.calendar .day.a1::after{background:#F2B5C1}
+.calendar .day.a2{color:#8B6914}.calendar .day.a2::after{background:#E8C060}
+.calendar .day.both{color:#CE93D8}.calendar .day.both::after{background:#D4A5C2}
+.calendar .day.today{border:1.5px solid #D4A5C2}
+.calendar .month-label{grid-column:1/-1;text-align:center;font-size:13px;color:#6B4226;font-weight:bold;padding:4px 0}
+.cal-legend{display:flex;gap:8px;font-size:10px;color:#8B7355;margin-top:2px;justify-content:center;flex-wrap:wrap}
+.cal-legend span{display:flex;align-items:center;gap:3px}
+.cal-legend .dot{width:6px;height:6px;border-radius:50%;display:inline-block}
 .entry-card{background:#FFF;border-radius:10px;padding:10px;cursor:pointer;margin-bottom:6px;border:1px solid #F0E8DD;font-size:12px}
 .entry-card:hover{border-color:#F2B5C1}
 .entry-card .ec-author{font-size:10px;padding:2px 7px;border-radius:9px;font-weight:bold;display:inline-block}
@@ -87,6 +100,7 @@ canvas{display:block}
 </div>
 </div>
 <div class="diary-right">
+<div id="calendar"></div>
 <h3>📚 过往日记</h3>
 <div id="d-list"><p class="no-entries" style="color:#B8A898;font-size:13px;text-align:center;padding:30px 0">还没有日记 ✨</p></div>
 </div>
@@ -433,6 +447,49 @@ let isNewEntry=true;
 
 function saveLocal(){localStorage.setItem(DKEY,JSON.stringify(diaryData))}
 
+function renderCalendar(){
+  var now=new Date();var y=now.getFullYear(),m=now.getMonth();
+  var firstDay=new Date(y,m,1).getDay(),daysInMonth=new Date(y,m+1,0).getDate();
+  var today=ts();
+  // 统计本月日记：{date: {shuang:true/false, qing:true/false}}
+  var monthMap={};
+  diaryData.entries.forEach(function(e){
+    var parts=e.date.split('-');if(parseInt(parts[0])===y&&parseInt(parts[1])===m+1){
+      if(!monthMap[e.date])monthMap[e.date]={s:false,q:false};
+      if(e.author==='双双')monthMap[e.date].s=true;else monthMap[e.date].q=true;
+    }
+  });
+  var h='<div class="calendar"><div class="month-label">'+y+'年'+(m+1)+'月</div>';
+  var hdrs=['日','一','二','三','四','五','六'];
+  for(var i=0;i<7;i++)h+='<div class="day-hdr">'+hdrs[i]+'</div>';
+  for(var i=0;i<firstDay;i++)h+='<div class="day"></div>';
+  for(var d=1;d<=daysInMonth;d++){
+    var dateStr=y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0');
+    var info=monthMap[dateStr];var cls='day';var title='';
+    if(dateStr===today)cls+=' today';
+    if(info){
+      if(info.s&&info.q){cls+=' both';title='双双 & 清昏'}
+      else if(info.s){cls+=' a1';title='双双'}
+      else{cls+=' a2';title='清昏'}
+      cls+=' has';
+    }
+    h+='<div class="'+cls+'" title="'+title+'" data-date="'+dateStr+'">'+d+'</div>';
+  }
+  h+='</div><div class="cal-legend"><span><span class="dot" style="background:#F2B5C1"></span>双双</span><span><span class="dot" style="background:#E8C060"></span>清昏</span><span><span class="dot" style="background:#D4A5C2"></span>两人</span></div>';
+  var cal=$('calendar');if(cal)cal.innerHTML=h;
+  // 点击日期查看当天日记
+  if(cal)cal.querySelectorAll('.day.has').forEach(function(day){
+    day.addEventListener('click',function(){
+      var dt=this.dataset.date;
+      var entries=diaryData.entries.filter(function(e){return e.date===dt});
+      var c=$('d-list');
+      if(entries.length===0){c.innerHTML='<p class=\"no-entries\" style=\"color:#B8A898;font-size:13px;text-align:center;padding:30px 0\">'+dt+' 没有日记</p>';return}
+      c.innerHTML='<div style=\"font-size:11px;color:#B8A898;margin-bottom:8px\">📅 '+dt+'</div>'+entries.map(function(e){var ac=e.author==='清昏'?'qh':'sh';var an=e.author==='清昏'?'🌙 清昏':'🌸 双双';return'<div class=\"entry-card\" data-id=\"'+e.id+'\"><span class=\"ec-author '+ac+'\">'+an+'</span><div class=\"ec-date\">'+e.time+'</div><div class=\"ec-text\">'+e.content.slice(0,30)+(e.content.length>30?'...':'')+'</div></div>'}).join('');
+      c.querySelectorAll('.entry-card').forEach(function(cd){cd.addEventListener('click',function(){var ee=diaryData.entries.find(function(x){return x.id===cd.dataset.id});if(!ee)return;entryId=ee.id;isNewEntry=false;$('d-text').value=ee.content;entryAuthor=ee.author||'双双';$('d-date').textContent='📅 '+ee.date+' '+ee.time;$('d-del').style.display='inline-block';updateAuthorBtns();renderList();})});
+    });
+  });
+}
+
 function renderList(){
   var c=$('d-list');
   if(diaryData.entries.length===0){c.innerHTML='<p class="no-entries" style=\"color:#B8A898;font-size:13px;text-align:center;padding:30px 0\">还没有日记 ✨</p>';return}
@@ -451,6 +508,7 @@ function renderList(){
       $('d-date').textContent='📅 '+e.date+' '+e.time;$('d-del').style.display='inline-block';updateAuthorBtns();renderList();
     });
   });
+  renderCalendar();
 }
 
 function newEntry(){
