@@ -12,11 +12,6 @@ body{overflow:hidden;background:#0a0806;font-family:'PingFang SC','Microsoft YaH
 #loading h1{font-size:2em;color:#4A3020}
 .loader-bar{width:200px;height:5px;background:rgba(255,255,255,.4);border-radius:3px;overflow:hidden}
 .loader-fill{height:100%;width:0;background:linear-gradient(90deg,#F2B5C1,#FFF,#F2B5C1);border-radius:3px}
-#click-prompt{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);cursor:pointer;transition:opacity .6s}
-#click-prompt.hidden{opacity:0;visibility:hidden}
-.prompt-box{background:rgba(255,252,248,.95);border-radius:20px;padding:30px 42px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.25)}
-.prompt-box h2{color:#4A3020;margin-bottom:6px}
-.prompt-box p{color:#8B7355;font-size:14px;line-height:1.6}
 #hud{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);z-index:10;pointer-events:none;transition:opacity .5s;text-align:center}
 #hud.locked{opacity:1}#hud.unlocked{opacity:.5}
 .hint-text{color:#fff;font-size:12px;text-shadow:0 1px 3px rgba(0,0,0,.7);line-height:1.5;opacity:.7}
@@ -56,7 +51,13 @@ canvas{display:block}
 
 <div id="loading"><h1>🌸 樱花庭院</h1><p>花瓣飘落中...</p><div class="loader-bar"><div class="loader-fill" id="loader-fill"></div></div></div>
 
-<div id="click-prompt" onclick="this.classList.add('hidden');window._step1=true"><div class="prompt-box"><h2>🌸 欢迎</h2><p>点击任意位置关闭此提示<br>然后点击场景画面即可开始探索<br><br>WASD 漫步 · 鼠标环顾 · E 打开日记本</p></div></div>
+<div id="welcome" style="position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);cursor:pointer">
+<div style="background:rgba(255,252,248,.95);border-radius:20px;padding:30px 42px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.25)">
+<h2 style="color:#4A3020;margin-bottom:6px">🌸 欢迎</h2>
+<p style="color:#8B7355;font-size:14px;line-height:1.6;margin-bottom:16px">WASD 漫步 · 鼠标环顾<br>走到长椅旁按 E 打开日记本</p>
+<button onclick="event.stopPropagation();document.getElementById('welcome').style.display='none'" style="padding:12px 36px;font-size:16px;cursor:pointer;border:none;border-radius:25px;background:linear-gradient(135deg,#F2B5C1,#D4A5C2);color:#fff;font-weight:bold">🌸 进入庭院</button>
+</div>
+</div>
 
 <div id="hud" class="unlocked"><div class="hint-text"><span>WASD</span> 漫步 · <span>鼠标</span> 环顾 · 靠近长椅按<span>E</span> · <span>ESC</span> 释放</div></div>
 <div id="interact-hint"></div>
@@ -91,6 +92,14 @@ canvas{display:block}
 </div>
 </div>
 
+<script>
+document.addEventListener('click',function(){
+  var w=document.getElementById('welcome');
+  if(w&&w.style.display!=='none')return;
+  var c=document.querySelector('canvas');
+  if(c){c.requestPointerLock=c.requestPointerLock||c.mozRequestPointerLock||c.webkitRequestPointerLock;c.requestPointerLock()}
+});
+</script>
 <script type="importmap">
 {"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
 </script>
@@ -337,37 +346,17 @@ function clampG(pos){
 
 // 控制
 // 用原始的 Pointer Lock API，不依赖 Three.js 的封装
-window._step1=false;
-window._entered=false;
 var pointerLocked=false;
-
-// 第2步：点场景画面 → 锁定鼠标 + 激活控制
-renderer.domElement.addEventListener('click',function(){
-  if(pointerLocked)return;
-  if(!window._step1)return; // 必须先关弹窗
-  // 请求 pointer lock
-  try{
-    var el=document.body;
-    el.requestPointerLock=el.requestPointerLock||el.mozRequestPointerLock||el.webkitRequestPointerLock;
-    el.requestPointerLock();
-  }catch(e){}
-  // 不管pointer lock成没成功，强制激活
-  window._entered=true;pointerLocked=true;
-  $('hud').classList.remove('unlocked');$('hud').classList.add('locked');
-  // 猫来迎接
-  csS.st='walking';csS.tm=6;csS.tX=camera.position.x+(Math.random()-0.5)*3;csS.tZ=camera.position.z+(Math.random()-0.5)*3;
-  csQ.st='walking';csQ.tm=6;csQ.tX=camera.position.x+(Math.random()-0.5)*3;csQ.tZ=camera.position.z+(Math.random()-0.5)*3;
-});
 
 document.addEventListener('pointerlockchange',function(){
   pointerLocked=!!document.pointerLockElement;
   if(pointerLocked){
-    $('click-prompt').classList.add('hidden');
+    $('welcome').style.display='none';
     $('hud').classList.remove('unlocked');$('hud').classList.add('locked');
     csS.st='walking';csS.tm=6;csS.tX=camera.position.x+(Math.random()-0.5)*3;csS.tZ=camera.position.z+(Math.random()-0.5)*3;
     csQ.st='walking';csQ.tm=6;csQ.tX=camera.position.x+(Math.random()-0.5)*3;csQ.tZ=camera.position.z+(Math.random()-0.5)*3;
   }else{
-    $('click-prompt').classList.remove('hidden');
+    $('welcome').style.display='flex';
     $('hud').classList.remove('locked');$('hud').classList.add('unlocked');
   }
 });
@@ -487,7 +476,7 @@ $('token-btn').addEventListener('click',function(){
 
 function closeDiary(){
   diaryOpen=false;$('diary-panel').classList.remove('open');
-  $('click-prompt').classList.remove('hidden');
+  $('welcome').style.display='flex';
 }
 
 async function saveEntry(){
@@ -555,7 +544,7 @@ function animate(){
   if(loadP<100){loadP=Math.min(100,loadP+dt*40);$('loader-fill').style.width=loadP+'%';if(loadP>=98)setTimeout(function(){$('loading').classList.add('hidden')},500)}
 
   // 玩家移动（键盘 + 触摸）
-  if((pointerLocked||window._entered)&&!diaryOpen){
+  if(pointerLocked&&!diaryOpen){
     var sp=keys.shift?28:14;
     var f=new THREE.Vector3();camera.getWorldDirection(f);f.y=0;f.normalize();
     var r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
