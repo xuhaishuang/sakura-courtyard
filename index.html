@@ -340,15 +340,25 @@ function clampG(pos){
 var pointerLocked=false;
 
 function doLock(){
-  if(!pointerLocked){
+  if(pointerLocked)return;
+  // 先关弹窗
+  $('click-prompt').classList.add('hidden');
+  $('hud').classList.remove('unlocked');$('hud').classList.add('locked');
+  // 尝试 pointer lock
+  try{
     var el=document.body;
     el.requestPointerLock=el.requestPointerLock||el.mozRequestPointerLock||el.webkitRequestPointerLock;
     el.requestPointerLock();
-  }
+  }catch(e){}
+  // 不管 pointer lock 成没成功，500ms后强制激活（至少WASD能用）
+  setTimeout(function(){if(!pointerLocked)pointerLocked=true},500);
+  // 猫来迎接
+  csS.st='walking';csS.tm=6;csS.tX=camera.position.x+(Math.random()-0.5)*3;csS.tZ=camera.position.z+(Math.random()-0.5)*3;
+  csQ.st='walking';csQ.tm=6;csQ.tX=camera.position.x+(Math.random()-0.5)*3;csQ.tZ=camera.position.z+(Math.random()-0.5)*3;
 }
 $('click-prompt').addEventListener('click',doLock);
 $('click-prompt').addEventListener('touchend',doLock);
-renderer.domElement.addEventListener('click',doLock);
+renderer.domElement.addEventListener('click',function(e){if(!pointerLocked)doLock()});
 
 document.addEventListener('pointerlockchange',function(){
   pointerLocked=!!document.pointerLockElement;
