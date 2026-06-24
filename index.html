@@ -56,7 +56,7 @@ canvas{display:block}
 
 <div id="loading"><h1>🌸 樱花庭院</h1><p>花瓣飘落中...</p><div class="loader-bar"><div class="loader-fill" id="loader-fill"></div></div></div>
 
-<div id="click-prompt" onclick="var el=document.body;el.requestPointerLock=el.requestPointerLock||el.mozRequestPointerLock||el.webkitRequestPointerLock;el.requestPointerLock();this.classList.add('hidden');document.getElementById('hud').classList.remove('unlocked');document.getElementById('hud').classList.add('locked');window._entered=true;"><div class="prompt-box"><h2>🌸 欢迎</h2><p>点击进入 · WASD 漫步 · 鼠标环顾<br>走到长椅旁按 E 打开日记本</p></div></div>
+<div id="click-prompt" onclick="this.classList.add('hidden');window._step1=true"><div class="prompt-box"><h2>🌸 欢迎</h2><p>点击任意位置关闭此提示<br>然后点击场景画面即可开始探索<br><br>WASD 漫步 · 鼠标环顾 · E 打开日记本</p></div></div>
 
 <div id="hud" class="unlocked"><div class="hint-text"><span>WASD</span> 漫步 · <span>鼠标</span> 环顾 · 靠近长椅按<span>E</span> · <span>ESC</span> 释放</div></div>
 <div id="interact-hint"></div>
@@ -337,29 +337,27 @@ function clampG(pos){
 
 // 控制
 // 用原始的 Pointer Lock API，不依赖 Three.js 的封装
+window._step1=false;
 window._entered=false;
 var pointerLocked=false;
 
-function doLock(){
+// 第2步：点场景画面 → 锁定鼠标 + 激活控制
+renderer.domElement.addEventListener('click',function(){
   if(pointerLocked)return;
-  // 先关弹窗
-  $('click-prompt').classList.add('hidden');
-  $('hud').classList.remove('unlocked');$('hud').classList.add('locked');
-  // 尝试 pointer lock
+  if(!window._step1)return; // 必须先关弹窗
+  // 请求 pointer lock
   try{
     var el=document.body;
     el.requestPointerLock=el.requestPointerLock||el.mozRequestPointerLock||el.webkitRequestPointerLock;
     el.requestPointerLock();
   }catch(e){}
-  // 不管 pointer lock 成没成功，500ms后强制激活（至少WASD能用）
-  setTimeout(function(){if(!pointerLocked)pointerLocked=true},500);
+  // 不管pointer lock成没成功，强制激活
+  window._entered=true;pointerLocked=true;
+  $('hud').classList.remove('unlocked');$('hud').classList.add('locked');
   // 猫来迎接
   csS.st='walking';csS.tm=6;csS.tX=camera.position.x+(Math.random()-0.5)*3;csS.tZ=camera.position.z+(Math.random()-0.5)*3;
   csQ.st='walking';csQ.tm=6;csQ.tX=camera.position.x+(Math.random()-0.5)*3;csQ.tZ=camera.position.z+(Math.random()-0.5)*3;
-}
-$('click-prompt').addEventListener('click',doLock);
-$('click-prompt').addEventListener('touchend',doLock);
-renderer.domElement.addEventListener('click',function(e){if(!pointerLocked)doLock()});
+});
 
 document.addEventListener('pointerlockchange',function(){
   pointerLocked=!!document.pointerLockElement;
