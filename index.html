@@ -337,8 +337,14 @@ function clampG(pos){
 }
 
 // 控制
-const controls=new PointerLockControls(camera,document.body);
-$('click-prompt').addEventListener('click',()=>controls.lock());
+const controls=new PointerLockControls(camera,renderer.domElement);
+
+function doLock(){if(!controls.isLocked)controls.lock()}
+// 点击欢迎弹窗 → 锁定鼠标
+$('click-prompt').addEventListener('click',doLock);
+// 点击画布也能锁定（ESC后再进来）
+renderer.domElement.addEventListener('click',doLock);
+
 controls.addEventListener('lock',()=>{
   $('click-prompt').classList.add('hidden');
   $('hud').classList.remove('unlocked');
@@ -350,6 +356,40 @@ controls.addEventListener('unlock',()=>{
   $('click-prompt').classList.remove('hidden');
   $('hud').classList.remove('locked');
   $('hud').classList.add('unlocked');
+});
+
+// 手机触摸控制
+var touchLeft=null,touchRight=null,touchVelX=0,touchVelZ=0,touchLookX=0,touchLookY=0;
+renderer.domElement.addEventListener('touchstart',function(e){
+  e.preventDefault();
+  for(var i=0;i<e.changedTouches.length;i++){
+    var t=e.changedTouches[i];
+    if(t.clientX<innerWidth/2&&!touchLeft){touchLeft={id:t.identifier,sx:t.clientX,sy:t.clientY}}
+    else if(t.clientX>=innerWidth/2&&!touchRight){touchRight={id:t.identifier,sx:t.clientX,sy:t.clientY}}
+  }
+  if(!controls.isLocked)doLock();
+},{passive:false});
+renderer.domElement.addEventListener('touchmove',function(e){
+  e.preventDefault();
+  for(var i=0;i<e.changedTouches.length;i++){
+    var t=e.changedTouches[i];
+    if(touchLeft&&t.identifier===touchLeft.id){
+      touchVelX=(t.clientX-touchLeft.sx)/innerWidth*40;
+      touchVelZ=(t.clientY-touchLeft.sy)/innerHeight*40;
+    }
+    if(touchRight&&t.identifier===touchRight.id){
+      touchLookX=(t.clientX-touchRight.sx)*0.005;
+      touchLookY=(t.clientY-touchRight.sy)*0.005;
+      touchRight.sx=t.clientX;touchRight.sy=t.clientY;
+    }
+  }
+},{passive:false});
+renderer.domElement.addEventListener('touchend',function(e){
+  for(var i=0;i<e.changedTouches.length;i++){
+    var t=e.changedTouches[i];
+    if(touchLeft&&t.identifier===touchLeft.id){touchLeft=null;touchVelX=0;touchVelZ=0}
+    if(touchRight&&t.identifier===touchRight.id){touchRight=null;touchLookX=0;touchLookY=0}
+  }
 });
 
 const keys={w:0,a:0,s:0,d:0,shift:0,space:0,e:0};
@@ -492,15 +532,20 @@ function animate(){
 
   if(loadP<100){loadP=Math.min(100,loadP+dt*40);$('loader-fill').style.width=loadP+'%';if(loadP>=98)setTimeout(function(){$('loading').classList.add('hidden')},500)}
 
-  // 玩家
+  // 玩家移动（键盘 + 触摸）
   if(controls.isLocked&&!diaryOpen){
     var sp=keys.shift?28:14;
     var f=new THREE.Vector3();camera.getWorldDirection(f);f.y=0;f.normalize();
     var r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
-    if(keys.w){vel.x+=f.x*sp*dt;vel.z+=f.z*sp*dt}
-    if(keys.s){vel.x-=f.x*sp*dt;vel.z-=f.z*sp*dt}
-    if(keys.a){vel.x-=r.x*sp*dt;vel.z-=r.z*sp*dt}
-    if(keys.d){vel.x+=r.x*sp*dt;vel.z+=r.z*sp*dt}
+    // 键盘输入
+    if(keys.w)vel.x+=f.x*sp*dt,vel.z+=f.z*sp*dt;
+    if(keys.s)vel.x-=f.x*sp*dt,vel.z-=f.z*sp*dt;
+    if(keys.a)vel.x-=r.x*sp*dt,vel.z-=r.z*sp*dt;
+    if(keys.d)vel.x+=r.x*sp*dt,vel.z+=r.z*sp*dt;
+    // 触摸输入
+    if(touchVelX||touchVelZ){vel.x+=f.x*touchVelZ*dt;vel.z+=f.z*touchVelZ*dt;vel.x-=r.x*touchVelX*dt;vel.z-=r.z*touchVelX*dt}
+    // 触摸视角旋转
+    if(touchLookX||touchLookY){camera.rotation.y-=touchLookX;camera.rotation.x-=touchLookY;camera.rotation.x=Math.max(-1.2,Math.min(0.5,camera.rotation.x))}
     vel.x*=Math.pow(0.05,dt);vel.z*=Math.pow(0.05,dt);
     if(Math.abs(vel.x)<0.005)vel.x=0;if(Math.abs(vel.z)<0.005)vel.z=0;
     if(keys.space&&camera.position.y<=1.65)vel.y=6;
