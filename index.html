@@ -338,12 +338,12 @@ function clampG(pos){
 // 控制
 // 用原始的 Pointer Lock API，不依赖 Three.js 的封装
 var pointerLocked=false;
-var lockEl=renderer.domElement;
 
 function doLock(){
   if(!pointerLocked){
-    lockEl.requestPointerLock=lockEl.requestPointerLock||lockEl.mozRequestPointerLock||lockEl.webkitRequestPointerLock;
-    lockEl.requestPointerLock();
+    var el=document.body;
+    el.requestPointerLock=el.requestPointerLock||el.mozRequestPointerLock||el.webkitRequestPointerLock;
+    el.requestPointerLock();
   }
 }
 $('click-prompt').addEventListener('click',doLock);
@@ -351,7 +351,7 @@ $('click-prompt').addEventListener('touchend',doLock);
 renderer.domElement.addEventListener('click',doLock);
 
 document.addEventListener('pointerlockchange',function(){
-  pointerLocked=document.pointerLockElement===lockEl;
+  pointerLocked=!!document.pointerLockElement;
   if(pointerLocked){
     $('click-prompt').classList.add('hidden');
     $('hud').classList.remove('unlocked');$('hud').classList.add('locked');
