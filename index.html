@@ -97,7 +97,6 @@ canvas{display:block}
 
 <script type="module">
 import * as THREE from 'three';
-import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
 
 // 工具
 function $(id){return document.getElementById(id)}
@@ -337,25 +336,39 @@ function clampG(pos){
 }
 
 // 控制
-const controls=new PointerLockControls(camera,renderer.domElement);
+// 用原始的 Pointer Lock API，不依赖 Three.js 的封装
+var pointerLocked=false;
+var lockEl=renderer.domElement;
 
-function doLock(){if(!controls.isLocked)controls.lock()}
-// 点击欢迎弹窗 → 锁定鼠标
+function doLock(){
+  if(!pointerLocked){
+    lockEl.requestPointerLock=lockEl.requestPointerLock||lockEl.mozRequestPointerLock||lockEl.webkitRequestPointerLock;
+    lockEl.requestPointerLock();
+  }
+}
 $('click-prompt').addEventListener('click',doLock);
-// 点击画布也能锁定（ESC后再进来）
+$('click-prompt').addEventListener('touchend',doLock);
 renderer.domElement.addEventListener('click',doLock);
 
-controls.addEventListener('lock',()=>{
-  $('click-prompt').classList.add('hidden');
-  $('hud').classList.remove('unlocked');
-  $('hud').classList.add('locked');
-  csS.st='walking';csS.tm=6;csS.tX=camera.position.x+(Math.random()-0.5)*3;csS.tZ=camera.position.z+(Math.random()-0.5)*3;
-  csQ.st='walking';csQ.tm=6;csQ.tX=camera.position.x+(Math.random()-0.5)*3;csQ.tZ=camera.position.z+(Math.random()-0.5)*3;
+document.addEventListener('pointerlockchange',function(){
+  pointerLocked=document.pointerLockElement===lockEl;
+  if(pointerLocked){
+    $('click-prompt').classList.add('hidden');
+    $('hud').classList.remove('unlocked');$('hud').classList.add('locked');
+    csS.st='walking';csS.tm=6;csS.tX=camera.position.x+(Math.random()-0.5)*3;csS.tZ=camera.position.z+(Math.random()-0.5)*3;
+    csQ.st='walking';csQ.tm=6;csQ.tX=camera.position.x+(Math.random()-0.5)*3;csQ.tZ=camera.position.z+(Math.random()-0.5)*3;
+  }else{
+    $('click-prompt').classList.remove('hidden');
+    $('hud').classList.remove('locked');$('hud').classList.add('unlocked');
+  }
 });
-controls.addEventListener('unlock',()=>{
-  $('click-prompt').classList.remove('hidden');
-  $('hud').classList.remove('locked');
-  $('hud').classList.add('unlocked');
+
+// 鼠标移动控制视角
+document.addEventListener('mousemove',function(e){
+  if(!pointerLocked)return;
+  camera.rotation.y-=e.movementX*0.002;
+  camera.rotation.x-=e.movementY*0.002;
+  camera.rotation.x=Math.max(-1.2,Math.min(0.5,camera.rotation.x));
 });
 
 // 手机触摸控制
@@ -367,7 +380,7 @@ renderer.domElement.addEventListener('touchstart',function(e){
     if(t.clientX<innerWidth/2&&!touchLeft){touchLeft={id:t.identifier,sx:t.clientX,sy:t.clientY}}
     else if(t.clientX>=innerWidth/2&&!touchRight){touchRight={id:t.identifier,sx:t.clientX,sy:t.clientY}}
   }
-  if(!controls.isLocked)doLock();
+  if(!pointerLocked)doLock();
 },{passive:false});
 renderer.domElement.addEventListener('touchmove',function(e){
   e.preventDefault();
@@ -454,7 +467,7 @@ function updateAuthorBtns(){
 
 function openDiary(){
   if(diaryOpen)return;diaryOpen=true;
-  controls.unlock();newEntry();$('diary-panel').classList.add('open');
+  document.exitPointerLock();newEntry();$('diary-panel').classList.add('open');
   if(GH_TOKEN){$('token-setup').style.display='none';$('token-ok').style.display='block'}
   else{$('token-setup').style.display='block';$('token-ok').style.display='none'}
 }
@@ -533,7 +546,7 @@ function animate(){
   if(loadP<100){loadP=Math.min(100,loadP+dt*40);$('loader-fill').style.width=loadP+'%';if(loadP>=98)setTimeout(function(){$('loading').classList.add('hidden')},500)}
 
   // 玩家移动（键盘 + 触摸）
-  if(controls.isLocked&&!diaryOpen){
+  if(pointerLocked&&!diaryOpen){
     var sp=keys.shift?28:14;
     var f=new THREE.Vector3();camera.getWorldDirection(f);f.y=0;f.normalize();
     var r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
