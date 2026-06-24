@@ -491,6 +491,7 @@ function renderCalendar(){
 }
 
 function renderList(){
+  renderCalendar();
   var c=$('d-list');
   if(diaryData.entries.length===0){c.innerHTML='<p class="no-entries" style=\"color:#B8A898;font-size:13px;text-align:center;padding:30px 0\">还没有日记 ✨</p>';return}
   var html='';
@@ -508,7 +509,6 @@ function renderList(){
       $('d-date').textContent='📅 '+e.date+' '+e.time;$('d-del').style.display='inline-block';updateAuthorBtns();renderList();
     });
   });
-  renderCalendar();
 }
 
 function newEntry(){
