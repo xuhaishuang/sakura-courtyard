@@ -83,6 +83,7 @@ canvas{display:block}
 <button class="btn btn-save" id="d-save">💾 保存</button>
 <button class="btn btn-out" id="d-new">➕ 新建</button>
 <button class="btn btn-out" id="d-sync">🔄 同步</button>
+<button class="btn" id="d-del" style="background:#FFF;color:#C0392B;border:1px solid #F0E0D0;display:none">🗑️ 删除</button>
 </div>
 </div>
 <div class="diary-right">
@@ -447,7 +448,7 @@ function renderList(){
       var e=diaryData.entries.find(function(x){return x.id===cd.dataset.id});
       if(!e)return;
       entryId=e.id;isNewEntry=false;$('d-text').value=e.content;entryAuthor=e.author||'双双';
-      $('d-date').textContent='📅 '+e.date+' '+e.time;updateAuthorBtns();renderList();
+      $('d-date').textContent='📅 '+e.date+' '+e.time;$('d-del').style.display='inline-block';updateAuthorBtns();renderList();
     });
   });
 }
@@ -455,6 +456,17 @@ function renderList(){
 function newEntry(){
   entryId=null;isNewEntry=true;$('d-text').value='';
   $('d-date').textContent='📅 '+ts()+' '+tm();updateAuthorBtns();renderList();
+  $('d-del').style.display='none';
+}
+function deleteEntry(){
+  if(!entryId||isNewEntry)return;
+  if(!confirm('确定删除这篇日记吗？'))return;
+  diaryData.entries=diaryData.entries.filter(function(e){return e.id!==entryId});
+  saveLocal();renderList();newEntry();
+  try{
+    var ct=u8b(JSON.stringify(diaryData,null,2));
+    fetch(GH_API,{method:'PUT',headers:{Authorization:'token '+GH_TOKEN,'Content-Type':'application/json'},body:JSON.stringify({message:'🗑️ 删除日记',content:ct,sha:''})});
+  }catch(e){}
 }
 
 function updateAuthorBtns(){
@@ -520,6 +532,7 @@ $('d-close').addEventListener('click',closeDiary);
 $('d-save').addEventListener('click',saveEntry);
 $('d-new').addEventListener('click',newEntry);
 $('d-sync').addEventListener('click',function(){loadDiary().then(function(){renderList()})});
+$('d-del').addEventListener('click',deleteEntry);
 $('a-sh').addEventListener('click',function(){entryAuthor='双双';updateAuthorBtns()});
 $('a-qh').addEventListener('click',function(){entryAuthor='清昏';updateAuthorBtns()});
 $('diary-panel').addEventListener('click',function(e){if(e.target===$('diary-panel'))closeDiary()});
