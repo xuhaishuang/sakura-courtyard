@@ -363,8 +363,10 @@ function clampG(pos){
 // 用原始的 Pointer Lock API，不依赖 Three.js 的封装
 var pointerLocked=false;
 
+var skipMouseFrame=0;
 document.addEventListener('pointerlockchange',function(){
   pointerLocked=!!document.pointerLockElement;
+  if(pointerLocked)skipMouseFrame=2; // 锁定后跳过2帧，防止偏移量积攒导致视角飞掉
   if(pointerLocked){
     $('welcome').style.display='none';
     $('hud').classList.remove('unlocked');$('hud').classList.add('locked');
@@ -379,6 +381,7 @@ document.addEventListener('pointerlockchange',function(){
 // 鼠标移动控制视角
 document.addEventListener('mousemove',function(e){
   if(!pointerLocked)return;
+  if(skipMouseFrame>0){skipMouseFrame--;return} // 跳过积攒的偏移
   camera.rotation.y-=e.movementX*0.002;
   camera.rotation.x-=e.movementY*0.002;
   camera.rotation.x=Math.max(-1.2,Math.min(0.5,camera.rotation.x));
