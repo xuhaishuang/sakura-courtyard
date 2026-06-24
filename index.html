@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>樱花庭院</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{overflow:hidden;background:#0a0806;font-family:'PingFang SC','Microsoft YaHei',sans-serif}
+#loading{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;background:linear-gradient(180deg,#B3D9E8,#F2B5C1 50%,#7CB342);transition:opacity .9s}
+#loading.hidden{opacity:0;visibility:hidden;pointer-events:none}
+#loading h1{font-size:2em;color:#4A3020}
+.loader-bar{width:200px;height:5px;background:rgba(255,255,255,.4);border-radius:3px;overflow:hidden}
+.loader-fill{height:100%;width:0;background:linear-gradient(90deg,#F2B5C1,#FFF,#F2B5C1);border-radius:3px}
+#click-prompt{position:fixed;inset:0;z-index:20;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);cursor:pointer;transition:opacity .6s}
+#click-prompt.hidden{opacity:0;visibility:hidden}
+.prompt-box{background:rgba(255,252,248,.95);border-radius:20px;padding:30px 42px;text-align:center;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.prompt-box h2{color:#4A3020;margin-bottom:6px}
+.prompt-box p{color:#8B7355;font-size:14px;line-height:1.6}
+#hud{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);z-index:10;pointer-events:none;transition:opacity .5s;text-align:center}
+#hud.locked{opacity:1}#hud.unlocked{opacity:.5}
+.hint-text{color:#fff;font-size:12px;text-shadow:0 1px 3px rgba(0,0,0,.7);line-height:1.5;opacity:.7}
+.hint-text span{color:#FFD54F}
+#interact-hint{position:fixed;top:50%;left:50%;transform:translate(-50%,-80px);color:#FFD54F;font-size:15px;font-weight:bold;text-shadow:0 0 12px rgba(0,0,0,.8);pointer-events:none;opacity:0;transition:opacity .25s;z-index:15}
+#interact-hint.show{opacity:1}
+
+#diary-panel{position:fixed;inset:0;z-index:50;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.5);opacity:0;visibility:hidden;transition:opacity .35s}
+#diary-panel.open{opacity:1;visibility:visible}
+.diary-box{width:min(700px,95vw);max-height:85vh;background:linear-gradient(160deg,#FFFBF6,#FFF0F5);border-radius:20px;box-shadow:0 20px 60px rgba(0,0,0,.4);overflow:hidden;display:flex}
+.diary-left{flex:1;padding:24px 20px;display:flex;flex-direction:column;gap:10px}
+.diary-left h3{color:#4A3020;font-size:1.1em}
+.author-row{display:flex;gap:8px;align-items:center}
+.author-btn{padding:5px 12px;border-radius:18px;border:2px solid transparent;cursor:pointer;font-size:13px;font-weight:bold;font-family:inherit;background:#FFF}
+.author-btn.sh{color:#D4687C}.author-btn.sh.on{border-color:#F2B5C1;background:#FFF0F3}
+.author-btn.qh{color:#8B6914}.author-btn.qh.on{border-color:#E8C060;background:#FFFBF0}
+.diary-date{color:#8B7355;font-size:13px;padding:5px 10px;background:#FFF;border-radius:8px;text-align:center}
+.diary-textarea{flex:1;min-height:120px;border:1px solid #F0E0D0;border-radius:12px;padding:14px;font-size:15px;line-height:1.7;resize:none;outline:none;font-family:inherit;background:#FFFEFB;color:#4A3020}
+.diary-textarea:focus{border-color:#F2B5C1}
+.btn-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.btn{padding:8px 18px;border-radius:22px;border:none;font-size:13px;font-weight:bold;cursor:pointer;font-family:inherit}
+.btn-save{background:linear-gradient(135deg,#F2B5C1,#D4A5C2);color:#FFF}
+.btn-out{background:#FFF;color:#8B7355;border:1px solid #E8D5C8}
+.btn-close{width:32px;height:32px;border-radius:50%;background:#FFF;border:1px solid #F0E0D0;font-size:17px;cursor:pointer;color:#8B7355}
+.diary-right{width:240px;padding:18px 14px;overflow-y:auto;background:rgba(255,255,255,.3)}
+.diary-right h3{color:#6B4226;font-size:1em;margin-bottom:6px}
+.entry-card{background:#FFF;border-radius:10px;padding:10px;cursor:pointer;margin-bottom:6px;border:1px solid #F0E8DD;font-size:12px}
+.entry-card:hover{border-color:#F2B5C1}
+.entry-card .ec-author{font-size:10px;padding:2px 7px;border-radius:9px;font-weight:bold;display:inline-block}
+.ec-author.sh{background:#FFF0F3;color:#D4687C}.ec-author.qh{background:#FFFBF0;color:#8B6914}
+.entry-card .ec-date{color:#A09080;font-size:10px;margin-top:2px}
+.entry-card .ec-text{color:#6B4226;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+canvas{display:block}
+</style>
+</head>
+<body>
+
+<div id="loading"><h1>🌸 樱花庭院</h1><p>花瓣飘落中...</p><div class="loader-bar"><div class="loader-fill" id="loader-fill"></div></div></div>
+
+<div id="click-prompt"><div class="prompt-box"><h2>🌸 欢迎</h2><p>WASD 漫步 · 鼠标环顾<br>走到长椅旁按 E 打开日记本</p></div></div>
+
+<div id="hud" class="unlocked"><div class="hint-text"><span>WASD</span> 漫步 · <span>鼠标</span> 环顾 · 靠近长椅按<span>E</span> · <span>ESC</span> 释放</div></div>
+<div id="interact-hint"></div>
+
+<div id="diary-panel">
+<div class="diary-box">
+<div class="diary-left">
+<div style="display:flex;justify-content:space-between;align-items:center">
+<h3>📖 日记本</h3><button class="btn-close" id="d-close">✕</button>
+</div>
+<div id="token-setup" style="font-size:11px;color:#8B7355;padding:6px 10px;background:#FFFBF0;border-radius:8px;display:none">
+☁️ 云端同步未启用 &nbsp;<input id="token-inp" placeholder="粘贴GitHub Token" style="font-size:11px;padding:3px 8px;border:1px solid #E8D5C8;border-radius:6px;width:180px">&nbsp;<button id="token-btn" style="font-size:11px;padding:3px 10px;background:#7CB342;color:#fff;border:none;border-radius:6px;cursor:pointer">启用</button>
+</div>
+<div id="token-ok" style="font-size:11px;color:#7CB342;padding:6px 10px;background:#F0FFF0;border-radius:8px;display:none">☁️ 云端同步已启用 ✅</div>
+<div class="author-row">
+<span style="font-size:12px;color:#8B7355">记录人：</span>
+<button class="author-btn sh on" id="a-sh">🌸 双双</button>
+<button class="author-btn qh" id="a-qh">🌙 清昏</button>
+</div>
+<div class="diary-date" id="d-date"></div>
+<textarea class="diary-textarea" id="d-text" placeholder="今天在樱花树下..."></textarea>
+<div class="btn-row">
+<button class="btn btn-save" id="d-save">💾 保存</button>
+<button class="btn btn-out" id="d-new">➕ 新建</button>
+<button class="btn btn-out" id="d-sync">🔄 同步</button>
+</div>
+</div>
+<div class="diary-right">
+<h3>📚 过往日记</h3>
+<div id="d-list"><p class="no-entries" style="color:#B8A898;font-size:13px;text-align:center;padding:30px 0">还没有日记 ✨</p></div>
+</div>
+</div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { PointerLockControls } from 'three/addons/controls/PointerLockControls.js';
+
+// 工具
+function $(id){return document.getElementById(id)}
+function ts(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
+function tm(){const d=new Date();return String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+function u8b(s){const e=new TextEncoder;const b=e.encode(s);let r='';for(let i=0;i<b.length;i++)r+=String.fromCharCode(b[i]);return btoa(r)}
+function b8u(s){const r=atob(s);const b=new Uint8Array(r.length);for(let i=0;i<r.length;i++)b[i]=r.charCodeAt(i);return new TextDecoder().decode(b)}
+
+// 场景
+const scene=new THREE.Scene();
+scene.background=new THREE.Color('#B3D9E8');
+scene.fog=new THREE.Fog('#C8E0F0',25,80);
+
+const camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.3,100);
+camera.position.set(0,2.8,10);
+
+const renderer=new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(innerWidth,innerHeight);
+renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.1;
+document.body.appendChild(renderer.domElement);
+
+// 光照
+scene.add(new THREE.AmbientLight('#FFFAF0',0.55));
+const sun=new THREE.DirectionalLight('#FFF5E8',3.5);
+sun.position.set(30,25,10);sun.castShadow=true;
+sun.shadow.mapSize.set(1024,1024);
+sun.shadow.camera.near=0.5;sun.shadow.camera.far=100;
+sun.shadow.camera.left=-20;sun.shadow.camera.right=20;
+sun.shadow.camera.top=20;sun.shadow.camera.bottom=-20;
+scene.add(sun);
+
+// 材质
+function M(c,r,m){return new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m||0})}
+const mGrass=M('#8BC34A',0.85);
+const mWood=M('#8B6914',0.55,0.05);
+const mWoodD=M('#6B4F12',0.55,0.05);
+const mStone=M('#B8A898',0.7);
+const mS1=M('#FDE0E8',0.5);
+const mS2=M('#FCE4EC',0.5);
+const mS3=M('#FFD1DC',0.5);
+const sakM=[mS1,mS2,mS3];
+const mWater=new THREE.MeshStandardMaterial({color:'#6DB8C8',roughness:0.15,metalness:0.2,transparent:true,opacity:0.85});
+const mCatS=M('#F5A060',0.6);
+const mCatSD=M('#D4783C',0.6);
+const mCatQ=M('#5A5A5A',0.6);
+const mCatQD=M('#3A3A3A',0.6);
+const mCatQW=M('#F0EDE8',0.5);
+
+// 地形
+const GR=13;
+const groundG=new THREE.Group();scene.add(groundG);
+const gGeo=new THREE.CircleGeometry(GR+5,48);gGeo.rotateX(-Math.PI/2);
+const gM=new THREE.Mesh(gGeo,mGrass);gM.receiveShadow=true;gM.position.y=-0.05;groundG.add(gM);
+
+// 石板路
+const pts=[[0,10],[0.5,8],[0.3,6],[-0.5,4],[0,2],[0.3,0],[0,-1.5]];
+for(let i=0;i<pts.length-1;i++){
+  const x1=pts[i][0],z1=pts[i][1],x2=pts[i+1][0],z2=pts[i+1][1];
+  const dx=x2-x1,dz=z2-z1,len=Math.sqrt(dx*dx+dz*dz);
+  const steps=Math.floor(len/0.7);
+  for(let j=0;j<=steps;j++){
+    const t=j/steps;
+    const s=new THREE.Mesh(new THREE.CylinderGeometry(0.32,0.36,0.06,8),Math.random()>0.5?mStone:M('#C8B8A8',0.7));
+    s.position.set(x1+dx*t+(Math.random()-0.5)*0.3,0.02,z1+dz*t+(Math.random()-0.5)*0.3);
+    s.receiveShadow=true;s.castShadow=true;
+    groundG.add(s);
+  }
+}
+
+// 池塘
+const pondG=new THREE.Group();
+const pGeo=new THREE.CircleGeometry(2.8,32);pGeo.rotateX(-Math.PI/2);
+const pp=pGeo.attributes.position;
+for(let i=0;i<pp.count;i++){
+  const x=pp.getX(i),z=pp.getZ(i),d=Math.sqrt(x*x+z*z);
+  const n=1+Math.sin(d*1.5)*0.15+Math.cos(d*2.3)*0.1;
+  pp.setX(i,x*n);pp.setZ(i,z*n);
+}
+pGeo.computeVertexNormals();
+pondG.add(new THREE.Mesh(pGeo,mWater)).position.set(6,0.03,4);
+groundG.add(pondG);
+
+// 木桥
+const brG=new THREE.Group();
+brG.add(new THREE.Mesh(new THREE.BoxGeometry(0.6,0.06,3.5),mWood)).position.y=0.15;
+for(let s=-1;s<=1;s+=2){
+  const z=s*0.7;
+  brG.add(new THREE.Mesh(new THREE.BoxGeometry(0.06,0.06,3.5),mWoodD)).position.set(z,0.45,0);
+  brG.add(new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.5,6),mWoodD)).position.set(z,0.35,-1.5);
+  brG.add(new THREE.Mesh(new THREE.CylinderGeometry(0.04,0.04,0.5,6),mWoodD)).position.set(z,0.35,1.5);
+}
+brG.position.set(6,0,2.2);groundG.add(brG);
+
+// 鱼
+function mkFish(color){
+  const g=new THREE.Group();
+  const bGeo=new THREE.SphereGeometry(0.15,6,4);bGeo.scale(1,0.4,0.5);
+  g.add(new THREE.Mesh(bGeo,new THREE.MeshStandardMaterial({color:color,roughness:0.3,metalness:0.2})));
+  const tGeo=new THREE.ConeGeometry(0.1,0.2,4);tGeo.rotateX(Math.PI/2);
+  const tMesh=new THREE.Mesh(tGeo,new THREE.MeshStandardMaterial({color:color,roughness:0.3,metalness:0.2}));
+  tMesh.position.z=-0.2;g.add(tMesh);
+  return g;
+}
+const fish1=mkFish('#F2B5C1');fish1.userData={ang:0,rad:1.8,sp:0.4,bY:0.15,cX:6,cZ:4};
+const fish2=mkFish('#90A4AE');fish2.userData={ang:Math.PI,rad:1.5,sp:0.35,bY:0.12,cX:6,cZ:4};
+const fishG=new THREE.Group();fishG.add(fish1);fishG.add(fish2);groundG.add(fishG);
+
+// 樱花树
+const treeG=new THREE.Group();
+const trunk=new THREE.Mesh(new THREE.CylinderGeometry(0.3,0.5,3.5,12),mWoodD);
+trunk.position.y=1.75;trunk.castShadow=true;treeG.add(trunk);
+for(let i=0;i<5;i++){
+  const branch=new THREE.Mesh(new THREE.CylinderGeometry(0.08,0.12,1.5+Math.random(),8),mWoodD);
+  branch.position.y=2.5+i*0.4;branch.rotation.z=0.3+i*0.15;branch.rotation.y=i*1.3;
+  branch.castShadow=true;treeG.add(branch);
+}
+for(let i=0;i<30;i++){
+  const angle=Math.random()*Math.PI*2,dist=Math.random()*3;
+  const y=3.5+Math.random()*2.5,r=0.6+Math.random()*1.5;
+  const cluster=new THREE.Mesh(new THREE.SphereGeometry(r,8,6),sakM[Math.floor(Math.random()*3)]);
+  cluster.position.set(Math.cos(angle)*dist,y,Math.sin(angle)*dist);
+  cluster.scale.y=0.7+Math.random()*0.2;
+  treeG.add(cluster);
+}
+treeG.position.set(0,0,-1.5);scene.add(treeG);
+
+// 篱笆
+for(let i=0;i<24;i++){
+  const angle=(i/24)*Math.PI*2;
+  if(i<=2||(i>=11&&i<=13))continue;
+  const x=Math.cos(angle)*(GR+2),z=Math.sin(angle)*(GR+2);
+  const g=new THREE.Group();
+  const postG=new THREE.CylinderGeometry(0.06,0.07,1.2,6);
+  g.add(new THREE.Mesh(postG,mWoodD)).position.set(-0.8,0.6,0);
+  g.add(new THREE.Mesh(postG,mWoodD)).position.set(0.8,0.6,0);
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(1.7,0.04,0.04),mWoodD)).position.set(0,0.4,0);
+  g.add(new THREE.Mesh(new THREE.BoxGeometry(1.7,0.04,0.04),mWoodD)).position.set(0,0.9,0);
+  g.position.set(x,0,z);g.rotation.y=angle+Math.PI/2;
+  scene.add(g);
+}
+
+// 长椅
+const benchG=new THREE.Group();
+const seatB=new THREE.Mesh(new THREE.BoxGeometry(2.5,0.1,0.7),mWood);
+seatB.position.y=0.6;seatB.castShadow=true;benchG.add(seatB);
+benchG.add(new THREE.Mesh(new THREE.BoxGeometry(2.5,0.7,0.08),mWood)).position.set(0,0.95,-0.32);
+benchG.add(new THREE.Mesh(new THREE.BoxGeometry(0.1,0.12,0.6),mWoodD)).position.set(-1.2,0.75,0);
+benchG.add(new THREE.Mesh(new THREE.BoxGeometry(0.1,0.12,0.6),mWoodD)).position.set(1.2,0.75,0);
+for(let lx=-1;lx<=1;lx+=2){for(let lz=-0.25;lz<=0.25;lz+=0.5){
+  benchG.add(new THREE.Mesh(new THREE.CylinderGeometry(0.05,0.06,0.55,8),mWoodD)).position.set(lx,0.28,lz);
+}}
+benchG.position.set(0,0,-0.5);scene.add(benchG);
+
+// 日记本 3D
+const diary3D=new THREE.Group();
+diary3D.add(new THREE.Mesh(new THREE.BoxGeometry(0.4,0.03,0.5),M('#C44E3D',0.4,0.1)));
+diary3D.add(new THREE.Mesh(new THREE.BoxGeometry(0.35,0.025,0.46),M('#FFFEF8',0.6))).position.y=0.005;
+diary3D.position.set(0,0.72,0.15);benchG.add(diary3D);
+
+// 花瓣
+const petals=[];
+const petM1=new THREE.MeshStandardMaterial({color:'#FDE0E8',roughness:0.4,side:THREE.DoubleSide,transparent:true,opacity:0.9});
+const petM2=new THREE.MeshStandardMaterial({color:'#FFD1DC',roughness:0.4,side:THREE.DoubleSide,transparent:true,opacity:0.85});
+for(let i=0;i<50;i++){
+  const p=new THREE.Mesh(new THREE.PlaneGeometry(0.08,0.12),i%2===0?petM1:petM2);
+  p.userData={
+    sp:0.3+Math.random()*0.7,swA:0.3+Math.random()*0.8,swS:0.5+Math.random()*1.5,
+    swP:Math.random()*Math.PI*2,rs:(Math.random()-0.5)*2,mY:0.05+Math.random()*0.3,
+    tX:-2+Math.random()*4,tT:4+Math.random()*3,tZ:-4+Math.random()*4
+  };
+  const u=p.userData;p.position.set(u.tX,u.tT+Math.random()*2,u.tZ);
+  petals.push(p);scene.add(p);
+}
+
+// 两只猫
+function mkCat(bodyMat,darkMat,chestMat){
+  const g=new THREE.Group();
+  const body=new THREE.Mesh(new THREE.CapsuleGeometry(0.2,0.4,4,8),bodyMat);
+  body.position.y=0.24;body.castShadow=true;g.add(body);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.18,8,6),bodyMat);
+  head.position.set(0,0.42,-0.25);g.add(head);
+  g.add(new THREE.Mesh(new THREE.ConeGeometry(0.06,0.12,6),darkMat)).position.set(-0.08,0.55,-0.27);
+  g.add(new THREE.Mesh(new THREE.ConeGeometry(0.06,0.12,6),darkMat)).position.set(0.08,0.55,-0.27);
+  const tail=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.045,0.5,6),darkMat);
+  tail.position.set(0,0.29,0.47);tail.rotation.x=-0.8;g.add(tail);
+  if(chestMat)g.add(new THREE.Mesh(new THREE.SphereGeometry(0.1,6,4),chestMat)).position.set(0,0.22,-0.32);
+  const eyeG=new THREE.SphereGeometry(0.03,4,4);
+  const eyeM=new THREE.MeshStandardMaterial({color:'#111',roughness:0.2});
+  g.add(new THREE.Mesh(eyeG,eyeM)).position.set(-0.05,0.44,-0.39);
+  g.add(new THREE.Mesh(eyeG,eyeM)).position.set(0.05,0.44,-0.39);
+  return g;
+}
+const catS=mkCat(mCatS,mCatSD);catS.position.set(-5,0,5);scene.add(catS);
+const catQ=mkCat(mCatQ,mCatQD,mCatQW);catQ.position.set(4,0,-2);scene.add(catQ);
+
+function newCatState(){return{st:'idle',tm:2+Math.random()*3,tX:0,tZ:0,wS:0.5+Math.random()*0.4}}
+const csS=newCatState(),csQ=newCatState();
+(function resetCat(s){s.tX=-GR+2+Math.random()*(GR*2-4);s.tZ=-GR+2+Math.random()*(GR*2-4)})(csS);
+(function resetCat(s){s.tX=-GR+2+Math.random()*(GR*2-4);s.tZ=-GR+2+Math.random()*(GR*2-4)})(csQ);
+
+function updCat(cat,cs,other,dt,time){
+  const p=cat.position,dx=cs.tX-p.x,dz=cs.tZ-p.z,dist=Math.sqrt(dx*dx+dz*dz);
+  const body=cat.children[0],head=cat.children[1];
+  cs.tm-=dt;
+  if(cs.st==='walking'){
+    if(dist<0.3||cs.tm<=0){cs.st='idle';cs.tm=1.5+Math.random()*4}
+    else{const a=Math.atan2(dx,dz);p.x+=Math.sin(a)*cs.wS*dt;p.z+=Math.cos(a)*cs.wS*dt;cat.rotation.y=a}
+  }else if(cs.st==='idle'){
+    if(cs.tm<=0){
+      const r=Math.random();
+      if(r<0.25){cs.st='sitting';cs.tm=1.5+Math.random()*3}
+      else if(r<0.4&&other){cs.tX=other.position.x+(Math.random()-0.5)*2;cs.tZ=other.position.z+(Math.random()-0.5)*2;cs.st='walking';cs.tm=4+Math.random()*4}
+      else if(r<0.5){cs.st='grooming';cs.tm=2+Math.random()*3}
+      else{(function(s){s.tX=-GR+2+Math.random()*(GR*2-4);s.tZ=-GR+2+Math.random()*(GR*2-4)})(cs);cs.st='walking';cs.tm=3+Math.random()*6}
+    }
+  }else if(cs.st==='sitting'){
+    body.scale.y=THREE.MathUtils.lerp(body.scale.y,0.65,dt*3);body.position.y=0.15;
+    if(cs.tm<=0){body.scale.y=1;body.position.y=0.24;cs.st='idle';cs.tm=1+Math.random()*2}
+  }else if(cs.st==='grooming'){
+    head.rotation.z=Math.sin(time*4.5)*0.35;
+    if(cs.tm<=0){head.rotation.z=0;cs.st='idle';cs.tm=1+Math.random()*2}
+  }
+  if(Math.sqrt(p.x**2+p.z**2)>GR-1){const a=Math.atan2(p.z,p.x);p.x=Math.cos(a)*(GR-1);p.z=Math.sin(a)*(GR-1)}
+}
+
+// 碰撞
+function clampG(pos){
+  const dist=Math.sqrt(pos.x**2+pos.z**2);
+  if(dist>GR-0.5){const a=Math.atan2(pos.z,pos.x);pos.x=Math.cos(a)*(GR-0.5);pos.z=Math.sin(a)*(GR-0.5)}
+  const dp=Math.sqrt((pos.x-6)**2+(pos.z-4)**2);
+  if(dp<2.5){const a=Math.atan2(pos.z-4,pos.x-6);pos.x=6+Math.cos(a)*2.5;pos.z=4+Math.sin(a)*2.5}
+  return pos;
+}
+
+// 控制
+const controls=new PointerLockControls(camera,document.body);
+$('click-prompt').addEventListener('click',()=>controls.lock());
+controls.addEventListener('lock',()=>{
+  $('click-prompt').classList.add('hidden');
+  $('hud').classList.remove('unlocked');
+  $('hud').classList.add('locked');
+  csS.st='walking';csS.tm=6;csS.tX=camera.position.x+(Math.random()-0.5)*3;csS.tZ=camera.position.z+(Math.random()-0.5)*3;
+  csQ.st='walking';csQ.tm=6;csQ.tX=camera.position.x+(Math.random()-0.5)*3;csQ.tZ=camera.position.z+(Math.random()-0.5)*3;
+});
+controls.addEventListener('unlock',()=>{
+  $('click-prompt').classList.remove('hidden');
+  $('hud').classList.remove('locked');
+  $('hud').classList.add('unlocked');
+});
+
+const keys={w:0,a:0,s:0,d:0,shift:0,space:0,e:0};
+const vel=new THREE.Vector3();
+
+document.addEventListener('keydown',function(e){
+  if(e.code==='KeyW')keys.w=1;if(e.code==='KeyA')keys.a=1;if(e.code==='KeyS')keys.s=1;if(e.code==='KeyD')keys.d=1;
+  if(e.code==='ShiftLeft'||e.code==='ShiftRight')keys.shift=1;
+  if(e.code==='Space'){keys.space=1;e.preventDefault()}
+  if(e.code==='KeyE')keys.e=1;
+});
+document.addEventListener('keyup',function(e){
+  if(e.code==='KeyW')keys.w=0;if(e.code==='KeyA')keys.a=0;if(e.code==='KeyS')keys.s=0;if(e.code==='KeyD')keys.d=0;
+  if(e.code==='ShiftLeft'||e.code==='ShiftRight')keys.shift=0;
+  if(e.code==='Space')keys.space=0;
+  if(e.code==='KeyE')keys.e=0;
+});
+
+// ============ 日记系统 ============
+const DKEY='sakura_diary_v1';
+let GH_TOKEN=localStorage.getItem('gh_token')||'';
+const GH_API='https://api.github.com/repos/xuhaishuang/diary/contents/room-diary.json';
+function setToken(tk){GH_TOKEN=tk;localStorage.setItem('gh_token',tk);if(tk)loadDiary()}
+
+let diaryData={entries:[]};
+let entryId=null;
+let entryAuthor='双双';
+let diaryOpen=false;
+let isNewEntry=true;
+
+function saveLocal(){localStorage.setItem(DKEY,JSON.stringify(diaryData))}
+
+function renderList(){
+  var c=$('d-list');
+  if(diaryData.entries.length===0){c.innerHTML='<p class="no-entries" style=\"color:#B8A898;font-size:13px;text-align:center;padding:30px 0\">还没有日记 ✨</p>';return}
+  var html='';
+  diaryData.entries.forEach(function(e){
+    var authorClass=e.author==='清昏'?'qh':'sh';
+    var authorName=e.author==='清昏'?'🌙 清昏':'🌸 双双';
+    html+='<div class="entry-card" data-id="'+e.id+'"><span class="ec-author '+authorClass+'">'+authorName+'</span><div class="ec-date">'+e.date+' '+e.time+'</div><div class="ec-text">'+e.content.slice(0,30)+(e.content.length>30?'...':'')+'</div></div>';
+  });
+  c.innerHTML=html;
+  c.querySelectorAll('.entry-card').forEach(function(cd){
+    cd.addEventListener('click',function(){
+      var e=diaryData.entries.find(function(x){return x.id===cd.dataset.id});
+      if(!e)return;
+      entryId=e.id;isNewEntry=false;$('d-text').value=e.content;entryAuthor=e.author||'双双';
+      $('d-date').textContent='📅 '+e.date+' '+e.time;updateAuthorBtns();renderList();
+    });
+  });
+}
+
+function newEntry(){
+  entryId=null;isNewEntry=true;$('d-text').value='';
+  $('d-date').textContent='📅 '+ts()+' '+tm();updateAuthorBtns();renderList();
+}
+
+function updateAuthorBtns(){
+  $('a-sh').classList.toggle('on',entryAuthor==='双双');
+  $('a-qh').classList.toggle('on',entryAuthor==='清昏');
+}
+
+function openDiary(){
+  if(diaryOpen)return;diaryOpen=true;
+  controls.unlock();newEntry();$('diary-panel').classList.add('open');
+  if(GH_TOKEN){$('token-setup').style.display='none';$('token-ok').style.display='block'}
+  else{$('token-setup').style.display='block';$('token-ok').style.display='none'}
+}
+$('token-btn').addEventListener('click',function(){
+  var tk=$('token-inp').value.trim();if(!tk)return;
+  setToken(tk);$('token-setup').style.display='none';$('token-ok').style.display='block';
+});
+
+function closeDiary(){
+  diaryOpen=false;$('diary-panel').classList.remove('open');
+  $('click-prompt').classList.remove('hidden');
+}
+
+async function saveEntry(){
+  var content=$('d-text').value.trim();if(!content)return;
+  var now=new Date();
+  var id=isNewEntry?'d'+now.getTime():entryId;
+  var entry={id:id,date:ts(),time:tm(),ts:now.getTime(),author:entryAuthor,content:content};
+  var idx=diaryData.entries.findIndex(function(x){return x.id===entry.id});
+  if(idx>=0)diaryData.entries[idx]=entry;else diaryData.entries.unshift(entry);
+  diaryData.entries.sort(function(a,b){return b.ts-a.ts});
+  saveLocal();renderList();newEntry();
+  $('d-save').textContent='✅ 已保存';setTimeout(function(){$('d-save').textContent='💾 保存'},1500);
+  try{
+    var sha=null;
+    var gr=await fetch(GH_API,{headers:{Authorization:'token '+GH_TOKEN}});
+    if(gr.ok){var j=await gr.json();sha=j.sha}
+    var ct=u8b(JSON.stringify(diaryData,null,2));
+    var body={message:'🌸 日记',content:ct};if(sha)body.sha=sha;
+    await fetch(GH_API,{method:'PUT',headers:{Authorization:'token '+GH_TOKEN,'Content-Type':'application/json'},body:JSON.stringify(body)});
+  }catch(e){}
+}
+
+async function loadDiary(){
+  var l=localStorage.getItem(DKEY);if(l){try{diaryData=JSON.parse(l)}catch(e){diaryData={entries:[]}}}
+  if(!GH_TOKEN){renderList();return}
+  try{
+    var r=await fetch(GH_API,{headers:{Authorization:'token '+GH_TOKEN}});
+    if(r.ok){
+      var j=await r.json();
+      var rem=JSON.parse(b8u(j.content));
+      var lids=new Set(diaryData.entries.map(function(e){return e.id}));
+      rem.entries.forEach(function(re){if(!lids.has(re.id))diaryData.entries.push(re)});
+      diaryData.entries.sort(function(a,b){return b.ts-a.ts});
+      saveLocal();
+    }
+  }catch(e){}
+  renderList();
+}
+
+$('d-close').addEventListener('click',closeDiary);
+$('d-save').addEventListener('click',saveEntry);
+$('d-new').addEventListener('click',newEntry);
+$('d-sync').addEventListener('click',function(){loadDiary().then(function(){renderList()})});
+$('a-sh').addEventListener('click',function(){entryAuthor='双双';updateAuthorBtns()});
+$('a-qh').addEventListener('click',function(){entryAuthor='清昏';updateAuthorBtns()});
+$('diary-panel').addEventListener('click',function(e){if(e.target===$('diary-panel'))closeDiary()});
+document.addEventListener('keydown',function(e){if(e.ctrlKey&&e.code==='KeyS'&&diaryOpen){e.preventDefault();saveEntry()}});
+
+// 日记本距离检测
+function isNearDiary(){
+  var wp=new THREE.Vector3();diary3D.getWorldPosition(wp);
+  return camera.position.distanceTo(wp)<3;
+}
+
+// 动画
+var clock=new THREE.Clock();
+var loadP=0;
+var eWas=false;
+
+function animate(){
+  requestAnimationFrame(animate);
+  var dt=Math.min(clock.getDelta(),0.12);
+  var t=clock.elapsedTime;
+
+  if(loadP<100){loadP=Math.min(100,loadP+dt*40);$('loader-fill').style.width=loadP+'%';if(loadP>=98)setTimeout(function(){$('loading').classList.add('hidden')},500)}
+
+  // 玩家
+  if(controls.isLocked&&!diaryOpen){
+    var sp=keys.shift?28:14;
+    var f=new THREE.Vector3();camera.getWorldDirection(f);f.y=0;f.normalize();
+    var r=new THREE.Vector3().crossVectors(f,new THREE.Vector3(0,1,0)).normalize();
+    if(keys.w){vel.x+=f.x*sp*dt;vel.z+=f.z*sp*dt}
+    if(keys.s){vel.x-=f.x*sp*dt;vel.z-=f.z*sp*dt}
+    if(keys.a){vel.x-=r.x*sp*dt;vel.z-=r.z*sp*dt}
+    if(keys.d){vel.x+=r.x*sp*dt;vel.z+=r.z*sp*dt}
+    vel.x*=Math.pow(0.05,dt);vel.z*=Math.pow(0.05,dt);
+    if(Math.abs(vel.x)<0.005)vel.x=0;if(Math.abs(vel.z)<0.005)vel.z=0;
+    if(keys.space&&camera.position.y<=1.65)vel.y=6;
+    vel.y-=15*dt;
+    camera.position.x+=vel.x*dt;camera.position.y+=vel.y*dt;camera.position.z+=vel.z*dt;
+    if(camera.position.y<1.6){camera.position.y=1.6;vel.y=0}
+    camera.position.copy(clampG(camera.position));
+  }
+
+  // E键日记
+  var near=isNearDiary();
+  if(near&&!diaryOpen){$('interact-hint').classList.add('show');$('interact-hint').textContent='📖 按 E 打开日记本'}
+  else if(!diaryOpen){$('interact-hint').classList.remove('show')}
+  if(near&&keys.e&&!eWas&&!diaryOpen){eWas=true;openDiary()}
+  if(!keys.e)eWas=false;
+
+  // 花瓣
+  var wMul=t<10?2:1;
+  petals.forEach(function(p){
+    var u=p.userData;
+    p.position.y-=u.sp*wMul*dt;
+    p.position.x+=Math.sin(t*u.swS+u.swP)*u.swA*dt;
+    p.position.z+=Math.cos(t*u.swS*0.7+u.swP)*u.swA*0.6*dt;
+    p.rotation.z+=u.rs*dt;
+    if(p.position.y<u.mY)p.position.set(u.tX+(Math.random()-0.5)*6,u.tT+Math.random()*3,u.tZ+(Math.random()-0.5)*6);
+  });
+
+  // 鱼
+  fish1.userData.ang+=fish1.userData.sp*dt;
+  fish1.position.x=fish1.userData.cX+Math.cos(fish1.userData.ang)*fish1.userData.rad;
+  fish1.position.z=fish1.userData.cZ+Math.sin(fish1.userData.ang)*fish1.userData.rad;
+  fish1.position.y=fish1.userData.bY+Math.sin(t*1.5+fish1.userData.ang)*0.06;
+  fish1.rotation.y=-fish1.userData.ang+Math.PI/2;
+  fish2.userData.ang+=fish2.userData.sp*dt;
+  fish2.position.x=fish2.userData.cX+Math.cos(fish2.userData.ang)*fish2.userData.rad;
+  fish2.position.z=fish2.userData.cZ+Math.sin(fish2.userData.ang)*fish2.userData.rad;
+  fish2.position.y=fish2.userData.bY+Math.sin(t*1.5+fish2.userData.ang)*0.06;
+  fish2.rotation.y=-fish2.userData.ang+Math.PI/2;
+
+  // 猫
+  updCat(catS,csS,catQ,dt,t);updCat(catQ,csQ,catS,dt,t);
+
+  renderer.render(scene,camera);
+}
+
+window.addEventListener('resize',function(){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight)});
+animate();loadDiary();
+</script>
+</body>
+</html>
