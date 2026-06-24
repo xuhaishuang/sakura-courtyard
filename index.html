@@ -440,7 +440,7 @@ function renderList(){
   diaryData.entries.forEach(function(e){
     var authorClass=e.author==='清昏'?'qh':'sh';
     var authorName=e.author==='清昏'?'🌙 清昏':'🌸 双双';
-    html+='<div class="entry-card" data-id="'+e.id+'"><span class="ec-author '+authorClass+'">'+authorName+'</span><div class="ec-date">'+e.date+' '+e.time+'</div><div class="ec-text">'+e.content.slice(0,30)+(e.content.length>30?'...':'')+'</div></div>';
+    html+='<div class="entry-card" data-id="'+e.id+'" style="position:relative"><span class="ec-author '+authorClass+'">'+authorName+'</span><span style="position:absolute;top:8px;right:10px;font-size:12px;color:#B8A898">✏️</span><div class="ec-date">'+e.date+' '+e.time+'</div><div class="ec-text">'+e.content.slice(0,30)+(e.content.length>30?'...':'')+'</div></div>';
   });
   c.innerHTML=html;
   c.querySelectorAll('.entry-card').forEach(function(cd){
