@@ -378,8 +378,7 @@ renderer.domElement.addEventListener('touchstart',function(e){
     if(t.clientX<innerWidth/2&&!touchLeft){touchLeft={id:t.identifier,sx:t.clientX,sy:t.clientY}}
     else if(t.clientX>=innerWidth/2&&!touchRight){touchRight={id:t.identifier,sx:t.clientX,sy:t.clientY}}
   }
-  if(!pointerLocked)doLock();
-},{passive:false});
+  },{passive:false});
 renderer.domElement.addEventListener('touchmove',function(e){
   e.preventDefault();
   for(var i=0;i<e.changedTouches.length;i++){
@@ -476,7 +475,8 @@ $('token-btn').addEventListener('click',function(){
 
 function closeDiary(){
   diaryOpen=false;$('diary-panel').classList.remove('open');
-  $('welcome').style.display='flex';
+  // 关日记后直接请求pointer lock回到场景
+  setTimeout(function(){var c=document.querySelector('canvas');if(c){c.requestPointerLock=c.requestPointerLock||c.mozRequestPointerLock||c.webkitRequestPointerLock;c.requestPointerLock()}},200);
 }
 
 async function saveEntry(){
